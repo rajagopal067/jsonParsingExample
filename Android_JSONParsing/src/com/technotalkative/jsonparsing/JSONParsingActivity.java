@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -16,18 +18,31 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ListAdapter;
+import android.widget.ListView;
+import android.widget.SimpleAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class JSONParsingActivity extends Activity {
     /** Called when the activity is first created. */
 	
 //	TextView txtViewParsedValue;
-	
+	ListView list;
 	TextView nameTextView;
 	TextView ratingTextView;
 	TextView locationTexView;
-	private JSONObject jsonObject;
+	Button btnGetData;
+	JSONArray android=null;
+	
+	private JSONObject json;
+	
+	ArrayList<HashMap<String,String>> resultList=new ArrayList<HashMap<String,String>>();
 	
 	String strParsedValue = null;
 	
@@ -40,11 +55,20 @@ public class JSONParsingActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         
+        list=(ListView) findViewById(R.id.list);
         nameTextView = (TextView) findViewById(R.id.textView1);
         ratingTextView = (TextView) findViewById(R.id.textView2);
         locationTexView=(TextView) findViewById(R.id.textView3);
+        btnGetData=(Button) findViewById(R.id.getdata);
         
-        	
+        btnGetData.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				// TODO Auto-generated method stub
+				new JSONParse().execute();
+			}
+		});
         GPSTracker gpsTracker=new GPSTracker(this);
         String latitude=null;
         String longitude=null;
@@ -59,14 +83,14 @@ public class JSONParsingActivity extends Activity {
         	try {
 				JSONArray jsonData=json.getJSONArray("results");
 				JSONObject firstResult=jsonData.getJSONObject(0);
-				String name=firstResult.getString("name");
-				String rating=firstResult.getString("rating");
-				String latitude1= firstResult.getJSONObject("geometry").getJSONObject("location").getString("lat");
-				String longitude1=firstResult.getJSONObject("geometry").getJSONObject("location").getString("lng");
+//				String name=firstResult.getString("name");
+//				String rating=firstResult.getString("rating");
+//				String latitude1= firstResult.getJSONObject("geometry").getJSONObject("location").getString("lat");
+//				String longitude1=firstResult.getJSONObject("geometry").getJSONObject("location").getString("lng");
 				
-				nameTextView.setText(name);
-				ratingTextView.setText(rating);
-				locationTexView.setText("Co-ordinates of "+name+"are "+latitude1+","+longitude1);
+//				nameTextView.setText(name);
+//				ratingTextView.setText(rating);
+//				locationTexView.setText("Co-ordinates of "+name+"are "+latitude1+","+longitude1);
 				
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
@@ -77,6 +101,67 @@ public class JSONParsingActivity extends Activity {
 //        	txtViewParsedValue.setText("Latitude: "+latitude+"Longitude: "+longitude);
 			
     }
+	
+	private class JSONParse extends AsyncTask<String, String, JSONObject>{
+		
+		private ProgressDialog pDialog;
+		
+		@Override
+		protected void onPreExecute() {
+			// TODO Auto-generated method stub
+			super.onPreExecute();
+			pDialog=new ProgressDialog(JSONParsingActivity.this);
+			pDialog.setMessage("Getting Data");
+			pDialog.setIndeterminate(false);
+			pDialog.setCancelable(true);
+			pDialog.show();
+		}
+		
+		@Override
+		protected JSONObject doInBackground(String... params) {
+			// TODO Auto-generated method stub
+			JSONParser jParser=new JSONParser();
+			JSONObject json=jParser.getJSONFromUrl("https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=17.482982,78.367431&radius=5000&types=food&sensor=false&key=AIzaSyB0KlOrROpVl6ssjqKMxSIaJrDGBCRxdo4");
+//			Toast.makeText(getApplicationContext(), json.toString(), Toast.LENGTH_SHORT).show();
+			return json;
+			
+		}
+		
+		@Override
+		protected void onPostExecute(JSONObject result) {
+			pDialog.dismiss();
+			// TODO Auto-generated method stub
+			try{
+				android=json.getJSONArray("results");
+				for(int i=0;i<android.length();i++){
+					JSONObject c=android.getJSONObject(i);
+					String name=c.getString("name");
+					String rating=c.getString("rating");
+					String latitude1= c.getJSONObject("geometry").getJSONObject("location").getString("lat");
+					String longitude1=c.getJSONObject("geometry").getJSONObject("location").getString("lng");
+					
+					HashMap<String, String> dataList=new HashMap<String, String>();
+					dataList.put("name", name);
+					dataList.put("rating", rating);
+					dataList.put("location", latitude1+","+longitude1);
+					resultList.add(dataList);
+					
+					list=(ListView) findViewById(R.id.list);
+					ListAdapter adapter=new SimpleAdapter(JSONParsingActivity.this, resultList, R.layout.list_v, 
+							new String[]{"name","rating","location"}, new int[]{R.id.textView1,R.id.textView2,R.id.textView3});
+					
+					list.setAdapter(adapter);
+				}
+			}
+				catch(JSONException e){
+					e.printStackTrace();
+				}
+			}
+			
+		}
+		
+	
+	
 	
 	public JSONObject getJSONFromUrl(String url){
 		InputStream is=null;
